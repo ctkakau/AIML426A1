@@ -79,15 +79,15 @@ def main(items, MAX_WEIGHT = 4, NGEN = 50, MU = 50, LAMBDA = 50,
     items = items
     IND_INIT_SIZE = 5 # is this the population size?
     NBR_ITEMS = len(items)
-    MAX_ITEM = len(items)
+    MAX_ITEM = 4
 
 
     def evalKnapsack(individual):
         weight = 0.0
         value = 0.0
         for item in individual:
-            weight += items[item][0]
-            value += items[item][1]
+            weight += items[item]['weight']
+            value += items[item]['value']
         if len(individual) > MAX_ITEM or weight > MAX_WEIGHT:
             return 10000, 0             # Ensure overweighted bags are dominated
         return weight, value
@@ -144,6 +144,7 @@ def main(items, MAX_WEIGHT = 4, NGEN = 50, MU = 50, LAMBDA = 50,
     stats.register("max", numpy.max, axis=0)
 
     # create my own stats:  
+    
 
 
 
