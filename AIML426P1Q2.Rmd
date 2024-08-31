@@ -1,5 +1,6 @@
 ---
 title: "AIML426 Project 1 Q2"
+author:  Chad Kakau
 output:
   pdf_document: default
   html_document: default
@@ -8,7 +9,6 @@ output:
 
 ```{r setup, include=FALSE}
 library(reticulate)
-
 ```
 
 # AIML426 Project 1 Q2  
@@ -19,9 +19,37 @@ Genetic algorithm can be used for feature selection, given $N$ features, each fe
 
 ### Problem description  
 
-Take a dataset with $N$ features and determine the optimal selection of features for fitting a good predictive model.  
+Take a dataset with $N$ features and determine the optimal selection of features for fitting a good predictive model.  The task is to build a Genetic Algorithm to perform feature selection, by selecting the fewest features that provide good classification.  The task requires two approaches:  
 
-```{python}
+  - __Filter function__:  where the fitness evaluation is conducted without a classifier function  
+  - __Wrapper function__:  where the fitness evaluation is conducted by assessing the classification accuracy of the features when used with a classification model.  
+  
+### evaluation function:  FilterGA  
+
+The Filter function compares average mutual gain information per feature.  The evaluation function computes the information gain (using the sklearn.feature_selection.mutual_info_classif function) for the subset of features for an individual (i.e. features where $x_i = 1$) and then averages that information gain across the selected features, to give an average information gain per feature.  The sklearn.feature_selection.mutual_info_classif function allows for identification of discrete variables and can handle continuous variables.  
+
+The mutual_info_classif function is passed continuous predictor variables DISCRETISE X FIRST, THEN PASS THE DISCRETISED TABLE - WILL THAT BE FASTER? 
+
+Average information gain per feature has a maximising objective.
+Number of features has a minimising objective. 
+
+$$
+\begin{aligned}
+\text{Fit}_{avg IG} & = \frac{I(Y;X)}{m}, \text{ with } m = \text{no. of features in X}\\
+ \\
+ I(Y;X)& = H(Y)-H(Y|X)\\
+\text{where } H(Y) & = -\sum_y p(y)*log_2 p(y),\\
+ H(Y|X) & = \sum_{x_1, ..., x_m} p(x_1, ...,x_m)H(Y|X_1 = x_1, ..., X_m = x_m)\\
+ & = - \sum_{x_1, ..., x_m} \sum_y p(x_1, ..., x_m) *p(y|x_1, ..., x_m)*\log_2 p(y|x_1, ..., x_m)
+\end{aligned}
+$$
+### evaluation function:  Wrapper
+
+The Wrapper function uses 
+
+### M
+
+```{python importAndFuncCreation, include=FALSE}
 # import function
 import feat_select as fs
 
@@ -99,24 +127,94 @@ def changing_run(paths = None, feat_names = None, func = None, params = None, n 
     return diffs
 ```
 
-```{python}
+```{python wrapperExperiments, include = FALSE}
 # test the wrapper function
 WrapperGA = changing_run(func = fs.main,
                          params = "FEAT_SEL = 'Wrapper'",
                          paths = ['wbcd.data', 'sonar.data'],
                          feat_names = ['wbcd.names', 'sonar.names'],
-                         n = 5)  
+                         n = 1)  
 ```
 
-```{python}
+```{python filterExperiments, include = FALSE}
 # test the filter function
 FilterGA = changing_run(func = fs.main,
                         paths = ['wbcd.data', 'sonar.data'],
                         feat_names = ['wbcd.names', 'sonar.names'], 
-                        n = 5)  
+                        n = 1)  
 ```
 
-```{python}
-FilterGA[3][1][4][0].fitness.values[0]# WrapperGA[stats[dat[run[gen]]], hof[dat[run[indiv]]], time[dat[run[delta]]], pop[dat[run[indiv[chromosome]]]]60
+```{python }
+FilterGA[2][0][0].total_seconds() # THESE RESULTS FOR A SINGLE RUN, CONTINUOUS X 
+# gives the time[2] for the dataset [1] and run [0]
+# 326 seconds for the big dataset (60 features) over 5 mins
+# 97 seconds for the small dataset (30 features) 1.5 mins
+WrapperGA[2][0][0].total_seconds() 
+# 104 sec (30 feat) nearly 2 min
+# 94 seconds for big one 1.5 min
+###### breakdown
+# GA_obj[0=stats[dat[run[gen]]], 1=hof[dat[run[indiv]]], 2=time[dat[run[delta]]], 3=pop[dat[run[indiv[chromosome]]]]60
+```
+
+```{python readData}
+import pandas as pd
+df = pd.read_csv('wbcd.data', header = None, names = None)
+X = df.iloc[:, :(len(df.columns)-1)]
+y = df.iloc[:, len(df.columns)-1]
+```
+
+
+```{python testingForDiscretFunc}
+# from sklearn.preprocessing import StandardScaler
+
+del X_disc
+X_disc = pd.DataFrame(columns = X.columns, index = X.index)
+
+for i, _ in enumerate(X.columns): 
+  X_disc.iloc[:, i] = pd.cut(df.iloc[:, i], bins = 10,)
+  for r, _ in enumerate(X_disc.iloc[:, i]):
+    X_disc.loc[r, i] = X_disc.iloc[r, i].left
+    
+```
+
+```{python testTheSpeed}
+from datetime import datetime as dt
+from sklearn.feature_selection import mutual_info_classif
+
+s1 = dt.now()
+mi_cont = mutual_info_classif(X, y)
+e1 = dt.now()
+t1 = e1-s1
+
+s2 = dt.now()
+mi_disc = mutual_info_classif(X_disc, y)
+e2 = dt.now()
+t2 = e2-s2
+
+t1 - t2
+
+# discretize X at the start and then call in the discretized values for the evaluation
+
+```
+
+
+
+```{python buildFunction}
+
+def discretize_data(X):
+  import pandas as pd
+  
+  X_disc = pd.DataFrame(columns = X.columns, index = X.index)
+  
+  # cut each column into 10 mins
+  for column, _ in enumerate(X.columns): 
+    X_disc.iloc[:, column] = pd.cut(X.iloc[:, column], bins = 10,)
+    
+    # keep the value for the left interval
+    for row, _ in enumerate(X_disc.iloc[:, column]):
+      X_disc.iloc[row, column] = X_disc.iloc[row, column].left
+      
+  return X_disc
+
 ```
 

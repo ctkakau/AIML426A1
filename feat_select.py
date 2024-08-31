@@ -42,30 +42,52 @@ def main(data = None,   # wcbd.data - use for feat_select
          ALGO = algorithms.eaMuPlusLambda):
     
 
+  
+    ##### read in data and features
+    
     # read in name file
-
-    feat_names = pd.read_csv(feature_names, sep = ":", skiprows = [0], names = ['feature', 'type'])
+    feat_names = pd.read_csv(feature_names, sep = ":", skiprows = [0], names = ['feature', 'type']) # type: ignore
     NBR_FEATS = len(feat_names)
-
     feat_names.loc[NBR_FEATS+1, ['feature', 'type']] = ['class', 'discrete']
     # read in raw data    
-    raw_data = pd.read_csv(data, index_col=False, names = [feat for feat in feat_names.loc[:, 'feature']])
+    raw_data = pd.read_csv(data, index_col=False, names = [feat for feat in feat_names.loc[:, 'feature']]) # type: ignore
 
-    IND_INIT_SIZE = NBR_FEATS
-    MU = NBR_FEATS
+
+    # function to discretize data
+    def discretize_data(X):
+        import pandas as pd
+        
+        X_disc = pd.DataFrame(columns = X.columns, index = X.index)
+        
+        # cut each column into 10 mins
+        for column, _ in enumerate(X.columns): 
+            X_disc.iloc[:, column] = pd.cut(X.iloc[:, column], bins = 10,)
+            
+            # keep the value for the left interval
+            for row, _ in enumerate(X_disc.iloc[:, column]):
+                X_disc.iloc[row, column] = X_disc.iloc[row, column].left # type: ignore
+            
+        return X_disc
+    
+    
+
+    ##### establish X and y
+    X = raw_data.iloc[:, :NBR_FEATS]
+    discretized_X = discretize_data(X)
+    y = raw_data['class']
+
+
+    ##### generic stuff
+    IND_INIT_SIZE = NBR_FEATS # type: ignore
+    MU = NBR_FEATS # type: ignore
     LAMBDA = MU
-    NGEN = 50
 
-    # remove these if no tournament
-    TOURN_SIZE = 10
-    LOW = 0
-    UP = 1
-    
-    
+
+
     # Individual representation:
     # maximise mutual info gain (Filter) or AIC(wrapper); minimise length
     creator.create("FitnessFS", base.Fitness, weights=(1.0, -1.0 ))
-    creator.create("Individual_FS", list, fitness=creator.FitnessFS)
+    creator.create("Individual_FS", list, fitness=creator.FitnessFS) # type: ignore
 
     toolbox = base.Toolbox()
 
@@ -73,9 +95,9 @@ def main(data = None,   # wcbd.data - use for feat_select
     toolbox.register("attr_bool", random.randint, 0, 1) 
 
     # Structure initializers
-    toolbox.register("individual", tools.initRepeat, creator.Individual_FS, 
-        toolbox.attr_bool, IND_INIT_SIZE)
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    toolbox.register("individual", tools.initRepeat, creator.Individual_FS,  # type: ignore
+        toolbox.attr_bool, IND_INIT_SIZE) # type: ignore
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual) # type: ignore
 
     # Filter feature selection
     def evalFilterGA(individual):
@@ -87,9 +109,8 @@ def main(data = None,   # wcbd.data - use for feat_select
                 selected.append(i)
         
         # build selected X and y
-        X = raw_data.iloc[:, selected]
-        y = raw_data.loc[:, 'class']
-
+        X = discretized_X.iloc[:, selected]
+        
         # compute the average mutual info of reduced features per feature
         length = len(X.columns)
         avg_MI_gain = sum(mutual_info_classif(X, y))/length
@@ -127,8 +148,8 @@ def main(data = None,   # wcbd.data - use for feat_select
     toolbox.register("select", SEL)
     toolbox.register("hof", tools.HallOfFame)
     
-    pop = toolbox.population(n=MU)
-    hof = toolbox.hof(1)
+    pop = toolbox.population(n=MU) # type: ignore
+    hof = toolbox.hof(1) # type: ignore
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("max", numpy.max, axis=0)
         
