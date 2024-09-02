@@ -71,10 +71,80 @@ def main(data = None,   # wcbd.data - use for feat_select
     
     
 
+    # functions to compute individual and joint entropies
+    # create a function to calculate probabilities of discretised vectors
+    def joint_probabilities(X_i, y):
+        import pandas as pd
+        import numpy as np
+        
+        # establish classes
+        classes_of_y = y.unique()
+        levels_of_X_i = X_i.unique()
+        
+        # establish output object
+        probs = pd.DataFrame(index = levels_of_X_i, columns = classes_of_y, )
+        # establish probabilities for each category of x
+        # counts
+        for clas in classes_of_y:
+            count = pd.Series(X_i[y==clas]).value_counts()
+            prob = count/len(X_i)
+            probs[clas] = prob
+            
+        return probs
+        
+
+   # create a function to calculate entropy
+    def entropy(probabilities):
+        import pandas as pd
+        import numpy as np
+        
+        entropy = 0
+        
+        # allow for single columns
+        if isinstance(probabilities, pd.Series):
+            ent = pd.DataFrame(columns = probabilities.index)
+            ent = - np.sum(probabilities* np.log2(probabilities))
+            
+            entropy = ent
+        
+        else:
+            # compute Shannon's entropy for 
+            for prob in probabilities.columns:
+            
+                ent = - np.sum(probabilities.loc[:, prob]* np.log2(probabilities.loc[:, prob]))
+                
+                entropy += ent
+            
+        entropy = -entropy  
+        return entropy
+    
+
+    # function to calculate mutual information
+    def mutual_information(features, joint = None, indiv = None, clas = None):
+        import numpy as np
+        
+        # features is an array of indexes for features
+        H_X = 0
+        H_XY = 0
+        H_Y = clas
+        for feature in features:
+            H_X += indiv[feature]
+            H_XY += joint[feature]
+            
+        MI = H_X +H_Y - H_XY
+        
+        return MI
+
+
     ##### establish X and y
     X = raw_data.iloc[:, :NBR_FEATS]
     discretized_X = discretize_data(X)
     y = raw_data['class']
+
+    # compute joint entropies for each individual feature
+    joint_entropies = [entropy(joint_probabilities(discretized_X.loc[:, i], y)) for i in discretized_X.columns]
+    individual_entropies = [entropy(pd.Series(discretized_X.loc[:, i]).value_counts()/len(y)) for i in discretized_X.columns]
+    class_entropy = entropy(pd.Series(y).value_counts()/len(y))
 
 
     ##### generic stuff
@@ -84,42 +154,36 @@ def main(data = None,   # wcbd.data - use for feat_select
 
 
 
-    # Individual representation:
-    # maximise mutual info gain (Filter) or AIC(wrapper); minimise length
-    creator.create("FitnessFS", base.Fitness, weights=(1.0, -1.0 ))
-    creator.create("Individual_FS", list, fitness=creator.FitnessFS) # type: ignore
-
-    toolbox = base.Toolbox()
-
-    # Attribute generator
-    toolbox.register("attr_bool", random.randint, 0, 1) 
-
-    # Structure initializers
-    toolbox.register("individual", tools.initRepeat, creator.Individual_FS,  # type: ignore
-        toolbox.attr_bool, IND_INIT_SIZE) # type: ignore
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual) # type: ignore
-
     # Filter feature selection
     def evalFilterGA(individual):
+        from sklearn.feature_selection import mutual_info_classif
+        
         selected = []
+        
+
         # identify selected features
         for i, feat in enumerate(individual):
-            
+           
             if feat != 0:
                 selected.append(i)
         
-        # build selected X and y
-        X = discretized_X.iloc[:, selected]
+        MI_gain = mutual_information(features = selected, joint = joint_entropies, indiv = individual_entropies, clas = class_entropy)
         
-        # compute the average mutual info of reduced features per feature
+        # average over total features selected
         length = len(X.columns)
-        avg_MI_gain = sum(mutual_info_classif(X, y))/length
+        avg_MI_gain = MI_gain/length
 
         return avg_MI_gain, length
     
+
+
     # Wrapper selection
     def evalWrapperGA(individual):
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.model_selection import train_test_split
+        
         selected = []
+        
         # identify selected features
         for i, feat in enumerate(individual):
             
@@ -130,15 +194,40 @@ def main(data = None,   # wcbd.data - use for feat_select
         X = raw_data.iloc[:, selected]
         y = raw_data.loc[:, 'class']
 
+        # split for train test to get accuracy
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.4)
+
         # compute classification accuracy based on some classification model
         # sklearn K nearest neighbours
         length = len(X.columns)
         knn = KNeighborsClassifier(2)
-        knn.fit(X, y)
+        knn.fit(X_train, y_train)
         accuracy = knn.score(X, y)
 
         return accuracy, length
-    
+
+
+
+
+    # Individual representation:
+    # maximise mutual info gain (Filter) or AIC(wrapper); minimise length
+    creator.create("FitnessFS", base.Fitness, weights=(1.0, -1.0 ))
+    creator.create("Individual_FS", list, fitness=creator.FitnessFS) # type: ignore
+
+
+    # Tools in the toolbox
+    toolbox = base.Toolbox()
+
+    # Attribute generator
+    toolbox.register("attr_bool", random.randint, 0, 1) 
+    # Structure initializers
+    toolbox.register("individual", tools.initRepeat, creator.Individual_FS,  # type: ignore
+        toolbox.attr_bool, IND_INIT_SIZE) # type: ignore
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual) # type: ignore
+
+
+
+    # evaluate, mate, mutate, select, hall of fame, population
     if FEAT_SEL == 'Filter':
         toolbox.register("evaluate", evalFilterGA)
     else:
@@ -150,9 +239,12 @@ def main(data = None,   # wcbd.data - use for feat_select
     
     pop = toolbox.population(n=MU) # type: ignore
     hof = toolbox.hof(1) # type: ignore
+
+    # statistics
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("max", numpy.max, axis=0)
         
+    # run the genetic algorithm
     pop, logbook = ALGO(pop, toolbox, MU, LAMBDA, CXPB, MUTPB, NGEN, stats,
                               halloffame=hof, verbose = False)
     
