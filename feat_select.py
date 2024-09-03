@@ -202,7 +202,7 @@ def main(data = None,   # wcbd.data - use for feat_select
         length = len(X.columns)
         knn = KNeighborsClassifier(2)
         knn.fit(X_train, y_train)
-        accuracy = knn.score(X, y)
+        accuracy = knn.score(X_test, y_test)
 
         return accuracy, length
 

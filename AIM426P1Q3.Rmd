@@ -1,0 +1,46 @@
+---
+title: "AIML426P1Q3"
+author: "Chad Kakau"
+date: "2024-09-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = FALSE)
+library(reticulate)
+
+```
+
+```{python importModules}
+import symbreg
+import deap
+import math
+import matplotlib.pyplot as plt
+import operator
+import math
+import random
+import networkx as nx
+import numpy as np
+import accuracies as ac
+
+from functools import partial
+
+from deap import algorithms
+from deap import base
+from deap import creator
+from deap import tools
+from deap import gp
+```
+
+```{python graphTrees}
+testpop, testlog, testhof = symbreg.main()
+best = ac.best_in_population(testpop)
+
+```
+
+```{python drawingTrees}
+# reduced tree height from 17 to 8
+
+ac.draw_tree(best)
+best.height
+```

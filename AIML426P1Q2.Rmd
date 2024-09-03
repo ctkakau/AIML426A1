@@ -6,9 +6,92 @@ output:
   html_document: default
 ---
 
-
 ```{r setup, include=FALSE}
 library(reticulate)
+```
+
+```{python importLibraries, include=FALSE}
+import pandas as pd
+import numpy as np
+import feat_select as fs
+import accuracies as ac
+
+```
+
+```{python wrapperExperiments, include=FALSE}
+# test the wrapper function
+WrapperGA = ac.changing_run(func = fs.main,
+                         params = "FEAT_SEL = 'Wrapper'",
+                         paths = ['wbcd.data', 'sonar.data'],
+                         feat_names = ['wbcd.names', 'sonar.names'],
+                         n = 5)  
+```
+
+```{python filterExperiments, include=FALSE}
+# test the filter function
+FilterGA = ac.changing_run(func = fs.main,
+                        paths = ['wbcd.data', 'sonar.data'],
+                        feat_names = ['wbcd.names', 'sonar.names'], 
+                        n = 5)  
+```
+
+```{python readInData, include=FALSE}
+
+feat_names_wbcd = pd.read_csv('wbcd.names', sep = ":", skiprows = [0], names = ['feature', 'type']) 
+feat_names_wbcd.loc[len(feat_names_wbcd)+1, ['feature', 'type']] = ['class', 'discrete']
+raw_data_wbcd = pd.read_csv('wbcd.data', index_col=False, names = [feat for feat in feat_names_wbcd.loc[:, 'feature']]) 
+
+
+feat_names_sonar = pd.read_csv('sonar.names', sep = ":", skiprows = [0], names = ['feature', 'type'])
+feat_names_sonar.loc[len(feat_names_sonar)+1, ['feature', 'type']] = ['class', 'discrete']
+raw_data_sonar = pd.read_csv('sonar.data', index_col=False, names = [feat for feat in feat_names_sonar.loc[:, 'feature']]) 
+    
+
+X_wbcd = raw_data_wbcd.iloc[:, :len(feat_names_wbcd)]
+y_wbcd = raw_data_wbcd['class']
+
+X_sonar = raw_data_sonar.iloc[:, :len(feat_names_sonar)]
+y_sonar = raw_data_sonar['class']
+
+
+cols = ['wbcd', 'sonar']
+ind = range(len(FilterGA[2][0]))
+
+
+Filter_times = pd.DataFrame(columns = cols, index = ind)
+Filter_accuracies = pd.DataFrame(columns = cols, index = ind)
+Wrapper_times = pd.DataFrame(columns = cols, index = ind)
+Wrapper_accuracies = pd.DataFrame(columns = cols, index = ind)
+
+X = [X_wbcd, X_sonar]
+y = [y_wbcd, y_sonar]
+
+
+for i,_ in enumerate(Filter_times.columns):
+  for j, _ in enumerate(FilterGA[2][i]):
+    Filter_times.iloc[j,i] = FilterGA[2][i][j].seconds
+    Filter_accuracies.iloc[j, i] = ac.accuracy_of_selected_features(ac.selected_features(ac.best_in_population(FilterGA[3][i][j]), X[i]), y[i])
+    Wrapper_times.iloc[j, i] = WrapperGA[2][i][j].seconds
+    Wrapper_accuracies.iloc[j,i] = ac.accuracy_of_selected_features(ac.selected_features(ac.best_in_population(WrapperGA[3][i][j]), X[i]), y[i]) 
+    
+sets = [Filter_times, Filter_accuracies, Wrapper_times, Wrapper_accuracies] #  
+
+for set in sets:
+  set.loc[len(set['wbcd']), :] = np.mean(set, axis = 0)
+  set.loc[len(set['wbcd']), :] = np.std(set, axis =0)
+  set.index = ['run1', 'run2', 'run3', 'run4', 'run5', 'mean', 'std_dev']
+  
+Processing_times_seconds = pd.DataFrame(
+  {'FilterGA_wbcd': Filter_times['wbcd'], 
+  'FilterGA_sonar': Filter_times['sonar'],
+  'Wrapper_wbcd': Wrapper_times['wbcd'],
+  'Wrapper_sonar': Wrapper_times['sonar']})
+  
+Accuracies = pd.DataFrame(
+  {'FilterGA_wbcd': Filter_accuracies['wbcd'], 
+  'FilterGA_sonar': Filter_accuracies['sonar'],
+  'Wrapper_wbcd': Wrapper_accuracies['wbcd'],
+  'Wrapper_sonar': Wrapper_accuracies['sonar']})
 ```
 
 # AIML426 Project 1 Q2  
@@ -51,283 +134,63 @@ I chose this method because I already knew how many classes there were in the ca
 
 ### Parameter settings  
 
-I 
+I reused many of the same parameters from the knapsack problem because of the similarities with this feature selection problem.  I considered using different methods for selection, crossover and mutation, but there weren't any compelling reasons (i.e. performance differences were driven primarily by the use of the FilterGA vs the WrapperGA and that was down to the greater resource required for fitting the model for each individual, even if that individual had been modelled already).
 
-```{python importAndFuncCreation, include=FALSE}
-# import function
-import feat_select as fs
-
-
-# function for running experiment N-times
-def multi_run(func, data = None, feat_names = None, params = None, n=1):
-    from datetime import datetime as dt
-    # accept only singular parameters - i.e. feed one function only
-    best_indiv = []
-    run_stats = []
-    time_delta = []
-    population = []
-
-    for r in range(n): 
-        start = dt.now()
-        if feat_names:
-            if params:
-                pop, stat, hof = func(data, feat_names, params)
-                
-            else:
-                pop, stat, hof = func(data, feat_names)
-                
-        else: 
-            pop, stat, hof = func(data, params)
-
-        
-        end = dt.now()
-        time = end - start
-
-        run_stats.append(stat)
-        best_indiv.append(hof)
-        time_delta.append(time)
-        population.append(pop)
-                
-    return run_stats, best_indiv, time_delta, population
-
-# function for running through the different datasets or different functions
-def changing_run(paths = None, feat_names = None, func = None, params = None, n = 1):
-
-    diffs = [[], [], [], []] 
-
-    if len(paths) > 1:
-        # iterate paths, keep all other parameters the same, function is required, params are optional
-        for p, dat in enumerate(paths):
-            if len(feat_names) > 1:
-                # include feat_names input
-                if params:
-                    run, best, time, population = multi_run(func, 
-                                           data= dat, 
-                                           feat_names= feat_names[p], 
-                                           params = params, 
-                                           n = n)
-                else:
-                    run, best, time, population = multi_run(func, 
-                                           data= dat, 
-                                           feat_names= feat_names[p], 
-                                           n = n)
-            
-            else:
-                
-                if params:
-                    run, best, time, population = multi_run(func, 
-                                           data= dat, 
-                                           params = params, 
-                                           n = n)
-                else:
-                    run, best, time, population = multi_run(func, 
-                                           data= dat, 
-                                           n = n)
-            diffs[0].append(run)
-            diffs[1].append(best)
-            diffs[2].append(time)
-            diffs[3].append(population)
-
-    return diffs
-```
-
-```{python readData}
-import pandas as pd
-df = pd.read_csv('wbcd.data', header = None, names = None)
-X = df.iloc[:, :(len(df.columns)-1)]
-y = df.iloc[:, len(df.columns)-1]
-```
-
-
-```{python testingForDiscretFunc}
-# clear that variable
-# del X_disc
-
-# create an empty df with appropriate dim
-X_disc = pd.DataFrame(columns = X.columns, index = X.index)
-
-# cut each column into 10 bins
-for i, _ in enumerate(X.columns): 
-  X_disc.iloc[:, i] = pd.cut(df.iloc[:, i], bins = 10,)
-  # retain just the left boundary of the interval for each value in the column
-  for r, _ in enumerate(X_disc.iloc[:, i]):
-    X_disc.loc[r, i] = X_disc.iloc[r, i].left
-    
-```
-
-
-```{python buildFunction}
-
-def discretize_data(X):
-  import pandas as pd
+As well as retaining the same methods as in the knapsack problem (Uniform crossover, FlipBit mutation, Elitism selection, and the MuPlusLambda), I also retained the same values for stochastic processes:  
+  - CXPB = 0.6 - probability an individual would produced by crossover  
+  - MUTPB = 0.4 - probability an individual would undergo mutation  
+  - INDPB = 0.4 - probability an individual bit being crossed over between parents (for crossover) or a bit being flipped (for mutation)  
+  - k = 2 for KNeighbors classifier used in wrapper evaluation  
+  - bins = 10 - number of bins for discretisation of continuous features.  
   
-  X_disc = pd.DataFrame(columns = X.columns, index = X.index)
+The changes I made were:  
+  - removed bias for producing mostly empty individuals in the first generation  
+  - reduced the size of the first population to the number of features for the dataset (i.e. 30 for the wbcd.data, 60 for the sonar.data set), and subsequent populations were the same size.
   
-  # cut each column into 10 mins
-  for column, _ in enumerate(X.columns): 
-    X_disc.iloc[:, column] = pd.cut(X.iloc[:, column], bins = 10,)
-    
-    # keep the value for the left interval
-    for row, _ in enumerate(X_disc.iloc[:, column]):
-      X_disc.iloc[row, column] = X_disc.iloc[row, column].left
-      
-  return X_disc
+These changes were driven by the excessive time taken for running the Wrapper function with on large populations.  I retained 50 generations for the number of evolutions.  
+
+### Results and Discussion
+
+#### Computational time  
+
+The computational time was much higher for the WrapperGA method than for the FilterGA method.  This should come as no surprise because of the implemented approaches:  
+  - FilterGA method calculates individual (i.e. $H(Y)$, $H(X_i)$) and shared entropies (i.e. $H(X_i Y)$ once, reducing the the computation of mutual gain to the summation of scalar values  
+  - WrapperGA method fits a full model (with reduced features) for each individual, which takes more processing per individual.  
+  - Neither method incorporates a memory function (i.e. each individual's fitness is re-computed, even if that individual is a duplicate of one that has already occurred in the population), and this has a greater cumulative effect for the WrapperGA function than for the FilterGA function.  
+
+Processing times: 
+```{python processingTimes, echo=FALSE}
+Processing_times_seconds
+```
+
+The FilterGA method takes an average of 3 seconds to run for both datasets, with no variance between runs.  In contrast, the Wrapper method took an average of 106 seconds for the wbcd data set and 97 seconds for the sonar data, with standard deviation of .73 and .36 seconds respectively. 
+  
+#### accuracy of selected features
+
+I trained the selected features represented by the best individuals produced from each method (FilterGA and WrapperGA) using the sklearn.tree.DecisionTreeClassifier function.  The decision tree classifier offers a reasonably efficient algorithm.
+
+```{python accuracies, echo=FALSE}
+Accuracies
+```
+
+The FilterGA method produced mean accuracy of `r py$Accuracies['mean','FilterGA_wbcd']` on the wbcd data and `r py$Accuracies['mean','FilterGA_sonar']` on the sonar data.  The WrapperGA method produced mean accuracy of `r py$Accuracies['mean','Wrapper_wbcd']` on the wbcd data and `r py$Accuracies['mean','Wrapper_sonar']` on the sonar data.  This indicates that the Filter method selected a feature set with comparable performance to the Wrapper method for both datasets.  
+
+When considered in conjunction with time taken for each method, the lower time cost for the FilterGA method seems like a significantly more efficient method with comparable accuracy, than the Wrapper method.
+
+```{python accuracyVsFitness, echo=FALSE}
+best_Wwbcd = [ac.best_in_population(pop).fitness.values[0] for pop in WrapperGA[3][0]]
+best_Wsonar= [ac.best_in_population(pop).fitness.values[0] for pop in WrapperGA[3][1]]
+
+fit_acc_comparison = pd.DataFrame(
+  {'wbcd accuracy': Wrapper_accuracies.loc['run1':'run5', 'wbcd'],
+  'wbcd fitness': best_Wwbcd,
+  'sonar accuracy': Wrapper_accuracies.loc['run1':'run5', 'sonar'],
+  'sonar fitness': best_Wsonar}
+)
+
+fit_acc_comparison
 
 ```
 
-```{python getThebest}
-# function to retun the best individual in a population based on fitness
-def best_in_population(pop):
-  from operator import attrgetter
-  
-  # retrieve from the population, the individual with the best fitness
-  best = max(pop, key = attrgetter('fitness'))
-  
-  return best
-
-
-# function to extract X based on best individual's feature selection
-def selected_features(best, X):
-  import pandas as pd
-  
-  selected = []
-  
-  # create a set of selected features based on the chromosomes of the best individual
-  for f, feature in enumerate(best):
-    
-    # retain the selected features
-    if feature == 1:
-      selected.append(f)
-    
-  # generate the reduced X with just selected features
-  reduced_X = X.iloc[:, selected]
-  
-  return reduced_X
-
-
-# function to determine training accuracy of a dataset using DecisionTreeClassifier
-def accuracy_of_selected_features(X, y):
-  from sklearn.tree import DecisionTreeClassifier
-  from sklearn.model_selection import train_test_split
-  
-  # split data for training and testing
-  X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.4)
-  
-  # run the classifier
-  clf = DecisionTreeClassifier()
-  clf = clf.fit(X_train, y_train)
-  
-  accuracy = clf.score(X_test, y_test)
-  
-  return accuracy
-```
-
-
-
-```{python functionsForEntropy}
-# create a function to calculate probabilities of discretised vectors
-def joint_probabilities(X_i, y):
-  import pandas as pd
-  import numpy as np
-  
-  # establish classes
-  classes_of_y = y.unique()
-  levels_of_X_i = X_i.unique()
-  
-  # establish output object
-  probs = pd.DataFrame(index = levels_of_X_i, columns = classes_of_y, )
-  # establish probabilities for each category of x
-  # counts
-  for clas in classes_of_y:
-    count = pd.Series(X_i[y==clas]).value_counts()
-    prob = count/len(X_i)
-    probs[clas] = prob
-    
-  return probs
-    
-# create a function to calculate entropy
-def entropy(probabilities):
-  import pandas as pd
-  import numpy as np
-  
-  entropy = 0
-  
-  # allow for single columns
-  if isinstance(probabilities, pd.Series):
-    ent = pd.DataFrame(columns = probabilities.index)
-    ent = - np.sum(probabilities* np.log2(probabilities))
-    
-    entropy = ent
-  
-  else:
-    # compute Shannon's entropy for 
-    for prob in probabilities.columns:
-    
-      ent = - np.sum(probabilities.loc[:, prob]* np.log2(probabilities.loc[:, prob]))
-      
-      entropy += ent
-    
-  entropy = -entropy  
-  return entropy
-
-#create a reference matrix for conditional probabilities 
-
-# create function to calculate information gain I(X;Y) = H(X) +H(Y) - H(X, Y)
-def mutual_information(features, joint = None, indiv = None, clas = None):
-  import numpy as np
-  
-  # features is an array of indexes for features
-  H_X = 0
-  H_XY = 0
-  H_Y = clas
-  for feature in features:
-    H_X += indiv[feature]
-    H_XY += joint[feature]
-    
-  MI = H_X +H_Y - H_XY
-  
-  return MI
-
-```
-
-
-```{python testingEntropies}
-joint_entropies = [entropy(joint_probabilities(X_disc.loc[:, i], y)) for i in X_disc.columns]
-individual_entropies = [entropy(pd.Series(X_disc.loc[:, i]).value_counts()/len(y)) for i in X_disc.columns]
-class_entropy = entropy(pd.Series(y).value_counts()/len(y))
-
-mutual_information([1,3,7,21], joint = joint_entropies, indiv = individual_entropies, clas = class_entropy)
-
-```
-
-
-```{python wrapperExperiments, include = FALSE}
-# test the wrapper function
-WrapperGA = changing_run(func = fs.main,
-                         params = "FEAT_SEL = 'Wrapper'",
-                         paths = ['wbcd.data', 'sonar.data'],
-                         feat_names = ['wbcd.names', 'sonar.names'],
-                         n = 5)  
-```
-
-```{python filterExperiments, include = FALSE}
-# test the filter function
-FilterGA = changing_run(func = fs.main,
-                        paths = ['wbcd.data', 'sonar.data'],
-                        feat_names = ['wbcd.names', 'sonar.names'], 
-                        n = 5)  
-```
-
-```{python }
-FilterGA[2][0][0].total_seconds() # THESE RESULTS FOR A SINGLE RUN, CONTINUOUS X 
-# gives the time[2] for the dataset [1] and run [0]
-# 326 seconds for the big dataset (60 features) over 5 mins
-# 97 seconds for the small dataset (30 features) 1.5 mins
-WrapperGA[2][0][0].total_seconds() 
-# 104 sec (30 feat) nearly 2 min
-# 94 seconds for big one 1.5 min
-###### breakdown
-# GA_obj[0=stats[dat[run[gen]]], 1=hof[dat[run[indiv]]], 2=time[dat[run[delta]]], 3=pop[dat[run[indiv[chromosome]]]]60
-```
-
+Comparing the WrapperGA fitness value against the accuracy for the individual runs shows generally better fitness values than accuracy for the wbcd data, and markedly better fitness values than accuracy for the sonar data.  This could be caused by the different classification models used (K Nearest Neighbors, with k=2, for the fitness function and Decision Tree for conducting the classification accuracy).  To eliminate this doubt, we could conduct the experiment using the same algorithm in the fitness and classification assessments.
 
