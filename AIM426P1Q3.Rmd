@@ -2,13 +2,16 @@
 title: "AIML426P1Q3"
 author: "Chad Kakau"
 date: "2024-09-02"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, include = FALSE)
+knitr::opts_chunk$set(echo = FALSE)
 library(reticulate)
-
+library(knitr)
+library(ggplot2)
 ```
 
 ```{python importModules}
@@ -20,6 +23,7 @@ import operator
 import math
 import random
 import networkx as nx
+import pandas as pd
 import numpy as np
 import accuracies as ac
 
@@ -30,17 +34,227 @@ from deap import base
 from deap import creator
 from deap import tools
 from deap import gp
-```
-
-```{python graphTrees}
-testpop, testlog, testhof = symbreg.main()
-best = ac.best_in_population(testpop)
 
 ```
 
-```{python drawingTrees}
-# reduced tree height from 17 to 8
 
-ac.draw_tree(best)
-best.height
+
+# AIML426 Project 1 Q3  
+
+##  Genetic Programming for Symbolic Regression  
+
+###  Problem Description  
+
+The problem is to build a Genetic Programm that automatically evolves a number of genetic programs for the following regression problem:  
+
+$$
+f(x) = 
+\begin{cases}
+\frac{1}{x} + \sin{x} & , x > 0\\
+2x+x^2+3.0 & , x \le 0
+\end{cases}
+$$
+
+## Method Description  
+
+### overall process  
+
+This genetic programme follows a generic process:  
+
+-  __Initialise__ (population)  
+-  __Repeat__ until __Stop__  
+  - __Evaluate__ individuals  
+  - __Crossover__ parent_pairs  
+  - __Mutate__ offspring_individuals  
+  - __Selection (Tournament)__ offspring  
+- __if__ stopping_criteria or max_generations:  
+  - __Stop__   
+- __else__ __Evaluate__
+
+### terminal and function sets  
+
+Because I couldn't figure out how to train the programme without knowing something about the target response, I basically threw in lots of functions:  
+
+- mathematical operations:  add, subtract, multiply, safe_division, sin, cos, $\le$, $\ge$, and negation  
+- logic operations:  and, or, not, xor, if_else  
+
+I know that you can get pretty much any integer output with a terminal set of just $1.0$ and boolean $1$, but the first few times I ran the gp I ended up with ridiculous trees that had lots of 'ones'.  I thought that meant I needed bigger numbers, so the tree wouldn't need so many individual 'ones' to get there, so I added more floats as terminals.  The terminal set included a range of floats and a boolean in order to provide an input for the \_if\_ operator: 
+
+- floats:  1.0, 2.0, 3.0, 5.0, 7.0  
+- boolean:  1
+
+Overall, I thought I over did the range of operations (especially considering most of the trees just ended up cancelling big brances of themselves out).  But the intention was to have a 'good range of operators and terminals' in order to achieve a shallower tree.
+
+###  fitness cases and fitness function  
+
+I honestly spent a couple of hours googling how to run a genetic programme without having a target to work towards, because I interpreted the assignment instructions to mean that we were to pretend we knew nothing about the target. Not even what it was. That was so painful.
+
+I (eventually) went for an evaluation function that incorporated an if_else loop, to try and allow the gp an opportunity to develop solutions that would change depending on the whether $x$ was greater than 0, or otherwise.  The evaluation function itself took a while to get implemented (list comprehension and lambdas and all that) and once it was implemented, I just accepted whatever rubbish it gave back.
+
+My fitness function was basically a one-liner that sought to minimise mean-squared error against $\frac{1}{x} + \sin{x}, \text{for } x>0$ and $2x+x^2+3.0, \text{for }x \le 0$.  I chose this function because that's the target formula.  While that is the target solution, it did not work out well for reasons discussed later.
+
+### parameter settings  
+
+The genetic programme uses GP-focussed functions from the deap library:  
+
+-  gp.cxOnePoint - I chose this one because when I tried using the cxOnePointLeafBiased method, my world imploded because the source code required a sorted sample, or a set.  I didn't want to change the source code, so I went back to gp.cxOnePoint.  It's a gp-specific crossover function and that's enough reason for me.  
+- gp.mutNodeReplacement - I chose this one because, again, it is a gp-specific mutation function and it looked easier to manage than the equivalent gp.mutUniform function.  
+- I initiated expressions with the gpGenHalfAndHalf method, because, gp-specific, but also because it gives the best of both worlds by randomly running either gp.genGrow or gp.genFull.  
+- sel.Tournament - I chose this method because when I tried the doubleTournament method it didn't work very well, and I don't know why, so I got scared and went back to the method in the deap example.  
+- I decorated the crossover and mutate functions with max height of 5 because the initial example had height of 17 and that created ridiculous, unintelligible trees.  
+
+```{python runThreeExps}
+gp_pop, gp_stats, gp_hallOfFame, gp_time,  = ac.multi_run(symbreg.main, n = 3)
+best_symbreg = pd.DataFrame({
+  'fitness (MSE)': [round(ac.best_in_population(pop).fitness.values[0], 3) for pop in gp_pop],
+  'programme size' : [int(len(ac.best_in_population(pop))) for pop in gp_pop],})
 ```
+
+```{python drawingTrees, echo=FALSE}
+# draw the first tree
+tree_files = ['tree1.png', 'tree2.png', 'tree3.png']
+[ac.draw_pgv_tree(ac.best_in_population(pop),  path = tree_files[i]) for i, pop in enumerate(gp_pop)]
+```
+
+## Experiment results and discussion  
+
+Running the experiment three times returns the following results:  
+
+```{python resultsTable}
+# print results table
+resultTab = ac.results_table(gp_pop)
+resultTab
+```
+
+The symbollic regression genetic programme returned three 'best' individual programmes, with average fitness (MSE) of `r round(py$resultTab['average', 'fitness'], 2)` and average programme size of `r round(py$resultTab['std_dev', 'fitness'], 2)`.  Fitness tends to improve as programme size increases, which seems reasonable considering a bigger programme will have more operations and values to available to try and achieve the challenging output of the target equation.
+
+The size of the programme gives an indication of it's complexity, with larger programmes generally having more complexity.  The size of the programme is limited by two parameters:  
+
+-  the width of the tree is limited by the:   
+
+  - maximum size of the available nodes, which is determined by the primitive each row represents.  The widest primitive is the \_if\_ node which comprises three nodes (one boolean and two floats)
+  - and the maximum number expressions in a node, and these were set to min=1, max = 2
+  
+- the depth of the tree is limited by the max_height constraint set as decorators to crossover and mutation functions (set as max_height = 5).
+
+### interpreting the trees
+
+The three trees are presented here:  
+
+```{r threeTrees, echo=FALSE, fig.width=0.3, out.height='30%'}
+# par(mfrow = c(1, 3))
+include_graphics('tree1.png') 
+include_graphics('tree2.png')
+include_graphics('tree3.png')
+# par(mfrow= c(1, 1))
+
+```
+
+The first tree has only 10 nodes comprising mathematic operations (add, mul), logic function (\_if\_), and terminal functions as floats (5.0, 2.0), boolean (1) and the variable x.  The programme resolves to the formula $5+((x*2)*5=10x+5)$.  The second tree has 12 nodes and resolves to $7x + (5- \sin(5/(x/7)))= 7x +(5-\sin(\frac{35}{x}))$.  The third tree has 16 nodes and resolves to $-(cos(5)/x) + (5+(cos(-1)/x))= 5-\frac{cos(5)}{x}-cos(\frac{1}{x})$.  These three equations can be simplified to:  
+
+- tree 1: $10x+5$  
+- tree 2: $7x +5 - \sin(\frac{35}{x})$  
+- tree 3: $5-\frac{cos(5)}{x} -cos(\frac{1}{x})$  
+compared to our target formula:  
+
+$$
+f(x) = 
+\begin{cases}
+\frac{1}{x} + \sin{x} & , x > 0\\
+2x+x^2+3.0 & , x \le 0
+\end{cases}
+$$
+
+```{r plotTreeOne, warning=FALSE}
+# plot results of tree one
+X = seq(-2, 2, 0.01)
+
+
+tree1 <- function(x){
+  # tree1 = 5+ 2x *5
+  out <- c(5+ 10*x)
+    return(out)
+}
+
+tree2 <- function(x){
+  # tree2 = 7x + (5- sin(5/(x/7)))
+  out <- 7*x + 5 -sin(35/x)
+  return(out)
+}
+
+tree3 <- function(x){
+  # tree3 = -(cos(5)/x) + (5+(cos(-1)/x))
+  out <- 5 - cos(5)/x-cos(1/x)
+  return(out)
+}
+
+target_equation <- function(x){
+  out <- if (x <= 0) (2*x + x**2 +3)  else (1/x + sin(x))
+  return(out)
+}
+
+plot_trees <- function(X){
+  library(ggplot2)
+  
+  target <- c()
+  tree_1 <- c()
+  tree_2 <- c()
+  tree_3 <- c()
+  
+  for (x in X){
+    target <- append(target, target_equation(x))
+    tree_1 <- append(tree_1, tree1(x))
+    tree_2 <- append(tree_2, tree2(x))
+    tree_3 <- append(tree_3, tree3(x))
+  }
+  
+  plot_data <- cbind(X, target, tree_1, tree_2, tree_3)
+  
+  gg <- ggplot(plot_data, aes(X))+
+    geom_line(aes(y = target, color = 'target'))+
+    geom_line(aes(y=tree_1, colour = 'soln 1'))+
+    geom_line(aes(y=tree_2, colour = 'soln 2'))+
+    geom_line(aes(y=tree_3, colour = 'soln 3'))+
+    scale_colour_manual(values = c(
+      'target' = 'red',
+      'soln 1' = 'blue',
+      'soln 2' = 'orange',
+      'soln 3' = 'green'
+    ))+
+    labs(title = 'GP symbollic regression solutions plotted',
+         xlab = 'y',
+         ylab = 'X', 
+         colour = 'Solutions')+
+    theme_classic()
+
+  return(gg)
+}
+
+tree_plots <- plot_trees(X)
+
+```
+
+The genetic programme has produced a range of linear functions and it is clear in the plot that none of the functions managed to quite replicate the target solution.  We see that solution 1 is the most linear, is postive through zero.  We see that solution two is also positive and passes through the origin and demonstrates sinusoidal oscillation and maintains a positive gradient.  The third solution has a hyperbolic cotangent shape.  
+
+```{r plottingSolutions}
+tree_plots
+```
+
+### issues and changes
+
+The target solution presented two challenges for my genetic programme:  
+
+1. the target function changes at $x=0$  
+2. the output of the target function $y \to \infty$ as $x\to 0$.  
+
+This means the evolved solutions need to develop functions that addresses two separate target functions, and I'd hoped that including a logic function and inequality operators would help, but the evolutions never really got to that level of complexity.  In particular, \_if\_ statements only ever ran with boolean values from the terminal sets, with the only other option for a boolean input coming from an inequality operator.
+
+Secondly, the evolved solutions need to experience small (fractional) values of x in order to establish high error values (and therefore lower fitness) to encourage evolving more appropriate individuals.  For example, when $x=0.01$ the output of the target equation is `r round(target_equation(0.01))`, when $x = 0.001$ the output of the target equation is `r round(target_equation(0.001))`.  The algorithm I implemented never included terminals that small, so none of those large errors were created during evaluation, resulting in solutions that don't pick up any of that nuance.  It is interesting that none of the solutions include the $\le$ or $\ge$ operators, so it would be interesting to try and trigger that occur in future attempts.
+
+Suggested improvements would be to:  
+
+- make bigger individuals (to allow more complexity),  
+- add other operators that could take floats as inputs and output booleans (including $=, <, >$),  
+- develop a fitness function that can target the two different cases separately.  
+
+Overall, the process was useful and may have perhaps found better solutions by allowing for larger individuals that could be  trimmed in later stages of the evolution.  
