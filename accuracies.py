@@ -76,8 +76,11 @@ def multi_run(func, data = None, feat_names = None, params = None, n=1, seed = N
                 pop, stat, hof = func(data, feat_names)
                 
         else: #symbreg
+          if data is not None:
+            pop, stat, hof, hyp = func(data, seed = r)
+          else:
             pop, stat, hof = func(seed = r)
-
+          
         
         end = dt.now()
         time = end - start
@@ -87,7 +90,7 @@ def multi_run(func, data = None, feat_names = None, params = None, n=1, seed = N
         time_delta.append(time)
         population.append(pop)
                 
-    return population, run_stats, hallOfFame, time_delta, 
+    return population, run_stats, hallOfFame, time_delta, hyp
 
 
 # function for running through the different datasets or different functions
@@ -99,7 +102,7 @@ def changing_run(paths = None, feat_names = None, func = None, params = None, n 
   if len(paths) > 1:
       # iterate paths, keep all other parameters the same, function is required, params are optional
       for p, dat in enumerate(paths):
-          if len(feat_names) > 1:
+          if feat_names is not None:
               # include feat_names input
               if params:
                   run, best, time, population = multi_run(func, 
@@ -141,10 +144,9 @@ def results_table(populations):
   best_indivs = [best_in_population(pop) for pop in populations]
   
   fitness = [round(indiv.fitness.values[0], 3) for indiv in best_indivs]
-  programme_size = [len(indiv) for indiv in best_indivs]
-  
-  stats = pd.DataFrame({'fitness' : [np.mean(fitness), np.std(fitness)] , 'programme size': [np.mean(programme_size), np.std(programme_size)]}, index = ['average', 'std_dev'])
-  results = pd.DataFrame({'fitness' : fitness, 'programme size': programme_size}, index = ['run'+str(i+1) for i in range(len(fitness))])
+  programme_size = [round(indiv.fitness.values[1], 2) for indiv in best_indivs]
+  stats = pd.DataFrame({'fitness_error' : [np.mean(fitness), np.std(fitness)] , 'fitness_features': [np.mean(programme_size), np.std(programme_size)]}, index = ['average', 'std_dev'])
+  results = pd.DataFrame({'fitness_error' : fitness, 'fitness_features': programme_size}, index = ['run'+str(i+1) for i in range(len(fitness))])
   
   results = pd.concat([results, stats])
 

@@ -1,0 +1,58 @@
+
+###########################
+
+AIML426 PROJECT1 Q3
+
+###########################
+
+README
+
+symbreg.py
+
+GENERAL
+- The symbreg.py script draws on DEAP example scripts 
+
+https://github.com/DEAP/deap/blob/master/examples/gp/symbreg.py
+
+and is modified slightly to meet the requirements of the AIML426 project 1 Question 3.  The script has no input requirements, all primitives and terminal sets are hardcoded to the script.  Most standard mathematical operations are included.  Additional safe division and _if_then_else_ functions are also included.  
+
+The programme attempts to develop a single formula for potential solutions to a piecewise problem.  
+
+f(x) = 1/x +sinx, for x>0 ; 2x+x**2 + 3.0, for x <= 0
+
+
+INSTALL
+
+The script is assumed to be in the working directory, although it can be installed from github:
+
+https://github.com/ctkakau/AIML426A1/blob/main/symbreg.py
+
+
+USAGE
+
+The script takes as arguments:
+INPUT requirements
+seed: numeric, used as random seed for replicability
+
+RETURNS
+three objects: 
+pop: list object containing all individuals in the population, for each generation
+
+logbook: list of dictionaries containing statistics for each generation, includes: generation number, maximum fitness for the generation, number of evaluations
+
+EXECUTION
+
+The script can be run directly.  An RMD file is also available that executes the script and reports the results
+
+https://github.com/ctkakau/AIML426A1/blob/main/AIML426P1Q3.Rmd
+
+The RMD runs the algorithms three times and reports the evolved programmes as trees.  
+
+REQUIREMENTS
+The script has no specific requirements
+
+A renv file is available that provides information on relevant packages and libraries:
+
+
+
+

@@ -1,0 +1,77 @@
+
+###########################
+
+AIML426 PROJECT1 Q2
+
+###########################
+
+README
+
+feat_sel.py
+
+GENERAL
+- The feat_sel.py script draws on DEAP example scripts 
+
+https://github.com/DEAP/deap/blob/master/examples/ga/knapsack.py 
+
+and is modified slightly to meet the requirements of the AIML426 project 1 Question 2.  The script requires a dataset of shape[n, m], where rows represent individual observations, with each column representing the features of the observation.  The data should include each observation's class in the final column.  The script is optimised for the binomial class situation
+
+The script provides two methods for feature selection:
+- FilterGA - Mutual Information method: uses sklearn mutual_info_classifier function to calculate mutual information of reduced feature set
+- WrapperGA - fits data to sklearn KNeighbours classifier and calculates accuracy of the model on the training data.
+
+INSTALL
+
+The script is assumed to be in the working directory, although it can be installed from github:
+
+https://github.com/ctkakau/AIML426A1/blob/main/feat_select.py
+
+
+USAGE
+
+The script takes as arguments:
+INPUT requirements
+data: str, relative path to csv file conatining the data
+feature_names: str, relative path to csv file containing feature names
+
+additional arguments can be provided:
+FEAT_SEL: str, indicates whether to use the 'FilterGA' function or the WrapperGA function
+clf = str, initially included to allow for altering classification method, only default is supported (KNeighbours classifier, with k=2)
+NGEN: int, number of generations for the algorthim
+HOF_MAX: int, number of individuals to include in the hall of fame
+INDPB: float, probability of selecting an individual bit as either crossover point (for crossover) or for flipping (for mutation)
+SEL: str (in form of tools.SELECTION_METHOD): selection method for use in genetic algorithm
+EMPTY: float, probability that individual bit will be empty
+CX: str (in form of tools.CROSSOVER_METHOD): crossover method for use in genetic algorithm
+CXPB: float, probability that an individual will be selected for crossover.  NB: 0 < CXPB +MUTPB <= 1
+MUTPB: float, probability that an individual will be selected for mutation  NB: 0 < CXPB +MUTPB <= 1
+ALGO:  str (in form algorithms.ALGORITHM_METHOD): algorithm selected evolutions
+
+RETURNS
+three objects: 
+pop: list object containing all individuals in the population, for each generation
+
+logbook: list of dictionaries containing statistics for each generation, includes: generation number, maximum fitness for the generation, number of evaluations
+
+hof:  list of best individuals to have existed in all generations of the algorithm
+
+
+EXECUTION
+
+The script can be run directly.  An RMD file is also available that executes the script and reports the results
+
+https://github.com/ctkakau/AIML426A1/blob/main/AIML426P1Q2.Rmd
+
+The RMD runs the algorithms five times for each dataset and each method and reports performance.
+
+
+REQUIREMENTS
+Data:  the script uses pandas.read_csv and assumes observation classes are included is the last column in the input dataset
+  
+RMD - if using the RMD file from github, the data files should also be included:
+  - https://github.com/ctkakau/AIML426A1/blob/main/sonar.data
+  - https://github.com/ctkakau/AIML426A1/blob/main/sonar.names
+  - https://github.com/ctkakau/AIML426A1/blob/main/wbcd.data
+  - https://github.com/ctkakau/AIML426A1/blob/main/wbcd.names
+
+

@@ -153,7 +153,7 @@ def main(data = None,   # wcbd.data - use for feat_select
     # run the genetic algorithm
     pop, logbook = algorithms.eaMuPlusLambda(pop, toolbox, MU, LAMBDA, cxpb=0.6, mutpb=0.4, ngen=NGEN, stats=stats,
                               halloffame=hof, verbose = False)
-    hyp = hypervolume(pop, [0, 1])
+    hyp = hypervolume(pop, [1.01, 1.01])
     
     return pop, logbook , hof, hyp
 

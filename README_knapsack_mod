@@ -1,0 +1,67 @@
+
+###########################
+
+AIML426 PROJECT1 Q1
+
+###########################
+
+README
+
+knapsack_mod.py
+
+GENERAL
+- The knapsack_mod.py script draws on DEAP example scripts 
+
+https://github.com/DEAP/deap/blob/master/examples/ga/knapsack.py 
+
+and is modified slightly to meet the requirements of the AIML426 project 1 Question 1.  The script requires a dataset of shape [n, 2], where rows represent an individual item that could be included in a knapsack, with each column representing the items 'value' and 'weight'.  column headers indicate ['total number of items', 'maximum weight'].  The algorithm determines the optimum items to be included in the knapsack for the maximum value, without exceeding the knapsack's maximum weight.
+
+INSTALL
+
+The script is assumed to be in the working directory, although it can be installed from github:
+
+https://github.com/ctkakau/AIML426A1/blob/main/knapsack_mod.py
+
+
+USAGE
+
+The script takes as arguments:
+INPUT requirements
+path: str, relative path to data containing list of value and weights by individual item
+
+additional arguments can be provided:
+NGEN: int, number of generations for the algorthim
+HOF_MAX: int, number of individuals to include in the hall of fame
+INDPB: float, probability of selecting an individual bit as either crossover point (for crossover) or for flipping (for mutation)
+SEL: str (in form of tools.SELECTION_METHOD): selection method for use in genetic algorithm
+EMPTY: float, probability that individual bit will be empty
+CX: str (in form of tools.CROSSOVER_METHOD): crossover method for use in genetic algorithm
+CXPB: float, probability that an individual will be selected for crossover.  NB: 0 < CXPB +MUTPB <= 1
+MUTPB: float, probability that an individual will be selected for mutation  NB: 0 < CXPB +MUTPB <= 1
+ALGO:  str (in form algorithms.ALGORITHM_METHOD): algorithm selected evolutions
+
+RETURNS
+three objects: 
+pop: list object containing all individuals in the population, for each generation
+
+logbook: list of dictionaries containing statistics for each generation, includes: generation number, maximum fitness for the generation, number of evaluations
+
+hof:  list of best individuals to have existed in all generations of the algorithm
+
+
+EXECUTION
+
+The script can be run directly.  An RMD file is also available that executes the script and reports the results
+
+https://github.com/ctkakau/AIML426A1/blob/main/knapsack_mod.py
+
+
+REQUIREMENTS
+Data:  the script uses pandas.read_csv and assumes parameters from the data (i.e. total number of items as header for column 1, maximum weight as header for column 2.  
+RMD - if using the RMD file from github, the data files should also be included:
+  - https://github.com/ctkakau/AIML426A1/blob/main/100_995
+  - https://github.com/ctkakau/AIML426A1/blob/main/10_269
+  - https://github.com/ctkakau/AIML426A1/blob/main/23_10000
+
+
+

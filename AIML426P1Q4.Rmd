@@ -55,10 +55,9 @@ from deap import gp
 
 
 ```{python runExperiment}
-del nsg
 import nsga2 as nsg
 
-# nsga = ac.changing_run(paths =['vehicle.dat', 'clean1.dat'], func = nsg.main, n = 3)
+# nsga = ac.changing_run(paths =['car.data', 'musk.data'], func = nsg.main, n = 3)
 pops = [ [], [] ]
 hyps = [ [], []]
 stats = [ [], []]
@@ -66,14 +65,15 @@ dat = [ 'musk.data', 'car.data']
 
 for d, data in enumerate(dat):
   for i in range(3):
-    pop, stat, hof, hyp =nsg.main(data=data, NGEN =50, MU = 50, seed =i)
+    pop, stat, hof, hyp =nsg.main(data=data, NGEN =5, MU = 5, seed =i)
     pops[d].append(pop)
     hyps[d].append(hyp)
     stats[d].append(stat)
 
 # [dat=[0:1]][run=[0:3]][0][run_results=0][0=pop[indiv], 1=stats[{'gen', 'nevals', 'min'}], 2=hof, 3=hypervolume]
 
-ac.results_table(pops[1])
+# import accuracies as ac
+# ac.results_table(pops[0])
 ```
 
 
@@ -150,7 +150,19 @@ I reduced the number of generations for each experiment from question 2, because
 
 Run the NSGA-II 3 times with different random seeds, obtain a set of non-dominated solutions
 
-Calculate the hypervolume and describe the nadir reference and justify the selection
+Calculate the hypervolume and describe the Nadir reference and justify the selection
+
+### Hypervolumes and nadir reference  
+
+```{r hyperVolumes}
+hyps
+```
+
+I selected $(1.01, 1.01)$ for the Nadir reference point since both fitness functions are minimising and should be within the range $(0, 1]$.  I chose slightly beyond the maximum error rate for the unlikely event that a individual with no features happens to be the best individual in the population.  This is highly unlikely as individuals with no selected features have fitness set to maximum values thereby ensuring they are dominated by any other individual in the population.  
+
+I used the built in function for to return the hypervolume for each run and include those results here
+
 
 Present a table with the hypervolume of the 3 runs
+
 

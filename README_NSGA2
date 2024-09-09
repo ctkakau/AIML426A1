@@ -1,0 +1,72 @@
+
+###########################
+
+AIML426 PROJECT1 Q4
+
+###########################
+
+README
+
+nsga2.py
+
+GENERAL
+- The symbreg.py script draws on DEAP example scripts 
+
+https://github.com/DEAP/deap/blob/master/examples/ga/nsga2.py
+
+and is modified slightly to meet the requirements of the AIML426 project 1 Question 4. 
+
+The programme attempts to perform feature selection on a dataset, of shape [n, f], with n observations and each observation consisting of f features.  The algorithm minimises classification error and feature ratio (number of selected features (m) over total number of features (f)).  The algorithm evaluates classification error of reduced feature sets using the sklearn KNeighboursClassifier function, with k = number of classes in the provided dataset.
+
+Performance has been improved over the feature selection algorithm used in the feat_select.py script by providing the algorithm with a memory.  The algorithm maintains a list of unique individuals as they are first encountered and when a duplicate individual is subsequently encountered (i.e. the same selected features as an earlier individual), the fitness values are drawn from memory rather than re-evaluated.
+
+
+INSTALL
+
+The script is assumed to be in the working directory, although it can be installed from github:
+
+https://github.com/ctkakau/AIML426A1/blob/main/nsga2.py
+
+
+USAGE
+
+The script takes as arguments:
+INPUT requirements
+data: str, relative path to dataset
+NGEN: int, number of generations for the algorithm
+HOF_MAX: int, number of individuals stored in the hall of fame
+INDPB: float, probability that an individual bit will be selected for mutation
+MU: int, number of individuals in population
+SEL: str, identify selection method for algorithm (in form tools.selSELECTION_METHOD)
+seed: numeric, used as random seed for replicability
+
+RETURNS
+four objects: 
+pop: list object containing all individuals in the population, for each generation
+
+logbook: list of dictionaries containing statistics for each generation, includes: generation number, maximum fitness for the generation, number of evaluations
+
+hof:  lift of best individuals across all generations
+
+hyp:  hypervolume ... not sure - I assume it calculates the hypervolume across the solutions, but I didn't set it up, just chucked it in.
+EXECUTION
+
+The script can be run directly.  An RMD file is also available that executes the script and reports the results
+
+https://github.com/ctkakau/AIML426A1/blob/main/AIML426P1Q4.Rmd
+
+The RMD runs the algorithms three times and reports the classification error and number of features selected.  
+
+REQUIREMENTS
+The script uses pandas.read_csv function to read in a dataset, the data should be have headers that indicate the features (columns), in particular the class of each observation must be in column labelled 'class'.  If using the RMD script, the below data files should also be used:
+
+- https://github.com/ctkakau/AIML426A1/blob/main/musk.data
+- https://github.com/ctkakau/AIML426A1/blob/main/car.data
+
+A renv file is available that provides information on relevant packages and libraries:
+
+https://github.com/ctkakau/AIML426A1/blob/main/renv.lock
+
+
+
+
