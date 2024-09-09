@@ -61,15 +61,35 @@ $$
 
 This genetic programme follows a generic process:  
 
--  __Initialise__ (population)  
--  __Repeat__ until __Stop__  
-  - __Evaluate__ individuals  
-  - __Crossover__ parent_pairs  
-  - __Mutate__ offspring_individuals  
-  - __Selection (Tournament)__ offspring  
-- __if__ stopping_criteria or max_generations:  
-  - __Stop__   
-- __else__ __Evaluate__
+```
+__Initialise__ (population
+    create Fitness_class
+      min_error:  classification_error
+    create Individual_class
+      inherit Fitness_class
+    individual representation
+      define chromosomes:
+        'expr': primitive_set, terminal_set
+      define individual:
+        'indiv': 'expr'*n
+    initialise population:
+      'pop': initialise_'indiv' * pop_size=n
+__Repeat__ until __Stop__  
+__Evaluate__ individuals  
+    classification_error:  MSE
+__Crossover__ 
+    parents_selected(prob=0.6)
+      cxOnePoint(parent1, parent2)
+        bit_selected(prob=0.4)
+__Mutate__ 
+    individual_selected(prob=0.4)
+      mutFlipBit(indiv)
+      bit_selected(prob=0.4)
+__Selection (Tournament)__ offspring  
+__if__ stopping_criteria or max_generations=50:  
+  __Stop__   
+__else__ go_to __Evaluate__
+```
 
 ### terminal and function sets  
 

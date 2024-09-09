@@ -1,0 +1,156 @@
+---
+title: "AIML426P1Q4"
+author: "Chad Kakau"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(reticulate)
+library(knitr)
+library(ggplot2)
+```
+
+```{python importModules}
+
+import deap
+import math
+import matplotlib.pyplot as plt
+import operator
+import math
+import random
+import networkx as nx
+import pandas as pd
+import numpy as np
+import accuracies as ac
+
+from functools import partial
+
+from deap import algorithms
+from deap import base
+from deap import creator
+from deap import tools
+from deap import gp
+```
+
+```{python cleanDataFiles}
+# # clean musk data to go create a file
+# musk_feats = pd.read_csv('clean1.names', sep = '.')
+# musk_feats = musk_feats.iloc[: , 0]
+# musk_feats =  musk_feats.str.split(':', expand = True)
+# musk_feats = musk_feats.iloc[: , 0]
+# musk_feats.iloc[167] = 'class'
+# musk = pd.read_csv('clean1.data', names = musk_feats) #, index_col = False)
+# musk.to_csv('musk.data', index = False)
+# 
+# # clean vehicles
+# vehicles = pd.read_csv('vehicle.dat', sep = ' ', header = None, index_col = False)
+# vehicles = vehicles.drop(columns = 19)
+# vehicles = vehicles.rename(columns = {18: 'class'})
+# vehicles.to_csv('car.data', index = False)
+
+```
+
+
+
+```{python runExperiment}
+del nsg
+import nsga2 as nsg
+
+# nsga = ac.changing_run(paths =['vehicle.dat', 'clean1.dat'], func = nsg.main, n = 3)
+pops = [ [], [] ]
+hyps = [ [], []]
+stats = [ [], []]
+dat = [ 'musk.data', 'car.data']
+
+for d, data in enumerate(dat):
+  for i in range(3):
+    pop, stat, hof, hyp =nsg.main(data=data, NGEN =50, MU = 50, seed =i)
+    pops[d].append(pop)
+    hyps[d].append(hyp)
+    stats[d].append(stat)
+
+# [dat=[0:1]][run=[0:3]][0][run_results=0][0=pop[indiv], 1=stats[{'gen', 'nevals', 'min'}], 2=hof, 3=hypervolume]
+
+ac.results_table(pops[1])
+```
+
+
+
+```{r }
+
+```
+
+# AIML426 Project 1 Q4 :  Non-dominated Sorting Genetic Algorithm-II (NSGA-II)  
+
+## Problem description  
+
+This problem replicates the problem from question two, where we want to reduce the amount of features used to fit a classification model.  In this genetic algorithm we will use two objectives:  
+1. minimise the classification error rate  
+2. minimise the ratio of selected features  
+
+This experiment uses a slightly modified programme from that used in Question 2 (GA-Feature selection), which itself was a slight modification of the example script provided at the deap website.
+
+## Method Description  
+
+### overall process  
+
+This genetic programme follows a generic process:  
+
+```
+__Initialise__ (population
+    create Fitness_class
+      min_class:  classification_error
+      min_feat:  (m=count_selected_features)/(n=count_features)
+    create Individual_class
+      inherit Fitness_class
+    individual representation
+      define chromosomes:
+        'expr': boolean
+      define individual:
+        'indiv': 'expr'*n
+    initialise population:
+      'pop': initialise_'indiv' * pop_size=n
+__Repeat__ until __Stop__  
+__Evaluate__ individuals  
+    classification_error:  MSE
+    feat_ratio: m/n
+__Crossover__ 
+    parents_selected(prob=0.6)
+      cxOnePoint(parent1, parent2)
+        bit_selected(prob=0.4)
+__Mutate__ 
+    individual_selected(prob=0.4)
+      mutFlipBit(indiv)
+      bit_selected(prob=0.4)
+__Selection (Tournament)__ offspring  
+__if__ stopping_criteria or max_generations=50:  
+  __Stop__   
+__else__ go_to __Evaluate__
+```
+
+The process takes a data set and performs the above alogrithm to determine an individual that comprises a reduced set of features from the initial data set.  These selected features minimise both the classification error and the number of features to get the best classification for the least features.
+
+The algorithm creates a fitness class, with two minimising objectives.  It then creates an individual class that inherits from the fitness class.  An Individual is represented as $x$, an $n$-length list of booleans, that indicate a feature at bit $i$ is included $x_i=1$ or excluded $x=0$.  The population comprises $n$ individuals in the first generation.
+
+Once the population is generated then individuals have fitness evaluated, by checking:  
+  - the training error of the selected features using a classification model from sklearn nearest neighbours
+  - the ratio of selected features to total features.  
+
+Crossover of parent pairs occurs with probability of 0.6, and the cxOnePoint crossover function selects an individual bit as the crossover point with probability of 0.4.  Mutation of individuals occurs with probability of 0.4 and the mutFlipBit function selects an individual bit for flipping $(0 \to 1)$ or $(1 \to 0)$ with probability 0.4.
+
+I chose cxOnePoint crossover because it is reliable and straight-forward to implement.  I chose 0.6 probability of crossover because I am more interested in transferring between parents than in mutating individuals, hence the complementary probability of mutation as 0.4.  For both crossover and mutation, I used 0.4 as the probability an individual bit being selected so that the evolutions aren't too erratic or extreme between generations.  I used the selNSGA2 selection method, rather than elitism, because that's the whole point of this experiment.  
+
+I used the eaMuPlusLambda algorithm because it gives the broadest selection base for each generation.
+  
+I reduced the number of generations for each experiment from question 2, because it just took too long - a direct result of fitting and evaluating full models on each individual in the population.  After spending ages waiting for evaluations during question two, I considered implementing a memory function within the programme that retains an individual's evaluated fitness and if an identical individual is encountered in the future, that previously evaluated fitness is used rather than fitting the model again.  But, I never managed to implement.  
+
+## Experiment Results and Discussions  
+
+Run the NSGA-II 3 times with different random seeds, obtain a set of non-dominated solutions
+
+Calculate the hypervolume and describe the nadir reference and justify the selection
+
+Present a table with the hypervolume of the 3 runs
+
